@@ -11,6 +11,37 @@ import type {
 import { ValidationError } from "./errors";
 import type { EnvlopedClient } from "./client";
 
+/** Mirrors POST /api/v1/emails attachment limits */
+const MAX_ATTACHMENTS = 10;
+const MAX_ATTACHMENTS_TOTAL_BYTES = 40 * 1024 * 1024;
+
+function attachmentDecodedByteLength(content: string): number {
+  const normalized = content.replace(/\s/g, "");
+  if (normalized.length === 0) {
+    throw new ValidationError("Invalid base64 attachment content");
+  }
+  if (normalized.length % 4 !== 0) {
+    throw new ValidationError("Invalid base64 attachment content");
+  }
+  if (/[^A-Za-z0-9+/=]/.test(normalized)) {
+    throw new ValidationError("Invalid base64 attachment content");
+  }
+
+  if (typeof Buffer !== "undefined") {
+    return Buffer.byteLength(normalized, "base64");
+  }
+  if (typeof atob !== "function") {
+    throw new ValidationError(
+      "Cannot validate attachment size in this environment",
+    );
+  }
+  try {
+    return atob(normalized).length;
+  } catch {
+    throw new ValidationError("Invalid base64 attachment content");
+  }
+}
+
 /**
  * Interface for email service
  */
@@ -101,6 +132,72 @@ export class EmailsService implements IEmailsService {
 
     if (params.replyTo && !this.isValidEmail(params.replyTo)) {
       throw new ValidationError("Invalid reply-to address");
+    }
+
+    this.validateAttachments(params.attachments);
+  }
+
+  /**
+   * Validate attachment array shape and size limits (matches API)
+   */
+  private validateAttachments(
+    attachments: SendEmailRequest["attachments"],
+  ): void {
+    if (attachments === undefined || attachments === null) {
+      return;
+    }
+
+    if (!Array.isArray(attachments)) {
+      throw new ValidationError("attachments must be an array");
+    }
+
+    if (attachments.length > MAX_ATTACHMENTS) {
+      throw new ValidationError(
+        `Maximum ${MAX_ATTACHMENTS} attachments allowed`,
+      );
+    }
+
+    let totalDecoded = 0;
+
+    for (let i = 0; i < attachments.length; i++) {
+      const att = attachments[i];
+      if (!att || typeof att !== "object") {
+        throw new ValidationError(`Invalid attachment at index ${i}`);
+      }
+
+      if (!att.filename || typeof att.filename !== "string") {
+        throw new ValidationError(
+          `Each attachment must have a filename (index ${i})`,
+        );
+      }
+
+      if (att.filename.trim() === "") {
+        throw new ValidationError(`Attachment filename cannot be empty (index ${i})`);
+      }
+
+      if (!att.content || typeof att.content !== "string") {
+        throw new ValidationError(
+          `Each attachment must have base64-encoded content (index ${i})`,
+        );
+      }
+
+      const decodedLen = attachmentDecodedByteLength(att.content);
+      totalDecoded += decodedLen;
+
+      if (totalDecoded > MAX_ATTACHMENTS_TOTAL_BYTES) {
+        throw new ValidationError(
+          "Total attachment size must not exceed 40MB (decoded)",
+        );
+      }
+
+      if (
+        att.contentType !== undefined &&
+        typeof att.contentType !== "string"
+      ) {
+        throw new ValidationError(
+          `attachment contentType must be a string when set (index ${i})`,
+        );
+      }
     }
   }
 

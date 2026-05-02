@@ -320,7 +320,7 @@ var EnvlopedClient = class {
     const timeout = config?.timeout || this._timeout;
     const url = new URL(path, this._baseURL);
     const headers = {
-      "Authorization": `Bearer ${this._apiKey}`,
+      Authorization: `Bearer ${this._apiKey}`,
       "Content-Type": "application/json",
       "User-Agent": this._userAgent
     };

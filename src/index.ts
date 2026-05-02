@@ -33,6 +33,7 @@ export {
 export type {
   RequestConfig,
   EmailAddress,
+  Attachment,
   SendEmailRequest,
   SendEmailResponse,
   PingResponse,

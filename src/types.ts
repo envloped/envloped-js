@@ -23,6 +23,18 @@ export interface EmailAddress {
 }
 
 /**
+ * File attachment for outbound email (base64 body matches POST /v1/emails)
+ */
+export interface Attachment {
+  /** File name shown to the recipient (e.g. invoice.pdf) */
+  filename: string;
+  /** Base64-encoded file bytes */
+  content: string;
+  /** MIME type (e.g. application/pdf, text/calendar) */
+  contentType?: string;
+}
+
+/**
  * Send email request parameters
  */
 export interface SendEmailRequest {
@@ -36,6 +48,8 @@ export interface SendEmailRequest {
   html?: string;
   /** Plain text content of the email */
   text?: string;
+  /** Optional attachments (max 10, combined decoded size ≤ 40 MB; API enforces the same) */
+  attachments?: Attachment[];
   /** Optional CC recipients */
   cc?: string[] | EmailAddress[];
   /** Optional BCC recipients */

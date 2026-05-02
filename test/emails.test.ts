@@ -153,6 +153,104 @@ describe('EmailsService', () => {
       expect(response).toEqual(TEST_SEND_RESPONSE);
     });
 
+    it('should send email with attachments', async () => {
+      const mockFetch = createMockFetch(createSuccessResponse(TEST_SEND_RESPONSE));
+      const client = new EnvlopedClient({
+        apiKey: TEST_API_KEY,
+        fetch: mockFetch,
+      });
+
+      const response = await client.emails.send({
+        ...TEST_EMAIL_PARAMS,
+        attachments: [
+          {
+            filename: 'note.txt',
+            content: Buffer.from('hello').toString('base64'),
+            contentType: 'text/plain',
+          },
+        ],
+      });
+
+      expect(response).toEqual(TEST_SEND_RESPONSE);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should validate attachments must be an array', async () => {
+      const client = new EnvlopedClient({ apiKey: TEST_API_KEY });
+
+      await expect(
+        client.emails.send({
+          ...TEST_EMAIL_PARAMS,
+          attachments: {} as unknown as [],
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it('should validate maximum attachment count', async () => {
+      const client = new EnvlopedClient({ apiKey: TEST_API_KEY });
+      const oneByteB64 = Buffer.from('x').toString('base64');
+      const many = Array.from({ length: 11 }, (_, i) => ({
+        filename: `f${i}.bin`,
+        content: oneByteB64,
+      }));
+
+      await expect(
+        client.emails.send({
+          ...TEST_EMAIL_PARAMS,
+          attachments: many,
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it('should validate attachment filename', async () => {
+      const client = new EnvlopedClient({ apiKey: TEST_API_KEY });
+
+      await expect(
+        client.emails.send({
+          ...TEST_EMAIL_PARAMS,
+          attachments: [
+            {
+              filename: '',
+              content: Buffer.from('a').toString('base64'),
+            },
+          ],
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it('should validate attachment content is base64', async () => {
+      const client = new EnvlopedClient({ apiKey: TEST_API_KEY });
+
+      await expect(
+        client.emails.send({
+          ...TEST_EMAIL_PARAMS,
+          attachments: [
+            {
+              filename: 'x.bin',
+              content: 'not-valid-base64!!!',
+            },
+          ],
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it('should validate optional contentType is a string', async () => {
+      const client = new EnvlopedClient({ apiKey: TEST_API_KEY });
+
+      await expect(
+        client.emails.send({
+          ...TEST_EMAIL_PARAMS,
+          attachments: [
+            {
+              filename: 'x.bin',
+              content: Buffer.from('a').toString('base64'),
+              contentType: 123 as unknown as string,
+            },
+          ],
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
     it('should handle API error', async () => {
       const mockFetch = createMockFetch(createErrorResponse(400, 'Invalid email'));
       const client = new EnvlopedClient({

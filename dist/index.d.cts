@@ -265,7 +265,7 @@ declare class ForbiddenError extends EnvlopedError {
  */
 declare class RateLimitError extends EnvlopedError {
     /** Rate limit usage details */
-    readonly usage: RateLimitDetails['usage'];
+    readonly usage: RateLimitDetails["usage"];
     /** When the rate limit resets */
     readonly resetsAt?: string;
     constructor(message: string, details?: RateLimitDetails);
